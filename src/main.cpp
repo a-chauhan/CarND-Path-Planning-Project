@@ -102,40 +102,71 @@ int main() {
             car_s = end_path_s;
           }
 
+          bool car_ahead = false;
+          bool car_in_left_lane = false;
+          bool car_in_right_lane = false;
+
           bool too_close = false;
 
-          for (int i = 0; i < sensor_fusion.size(); i++) {
-            // Cars in my lane
+          for ( int i = 0; i < sensor_fusion.size(); i++ ) {
             float d = sensor_fusion[i][6];
-            if (d < (2 + 4 * lane + 2) && d > (2 + 4 * lane - 2))
-            {
-              double vx = sensor_fusion[i][3];
-              double vy = sensor_fusion[i][4];
-              double check_speed = sqrt(vx*vx + vy*vy);
-              double check_car_s = sensor_fusion[i][5];
+            int car_lane = -1;
+            // Check if the is on the same lane as ours
+            if ( d > 0 && d < 4 ) {
+              car_lane = 0;
+            } else if ( d > 4 && d < 8 ) {
+              car_lane = 1;
+            } else if ( d > 8 && d < 12 ) {
+              car_lane = 2;
+            }
+            if (car_lane < 0) {
+              continue;
+            }
 
-              check_car_s += ((double)prev_size * 0.2 * check_speed);
+            // Calculate the car velocity
+            double vx = sensor_fusion[i][3];
+            double vy = sensor_fusion[i][4];
+            double check_speed = sqrt(vx*vx + vy*vy);
+            double check_car_s = sensor_fusion[i][5];
 
-              if((check_car_s > car_s) && ((check_car_s - car_s) < 30))
-              {
-                // Lower the reference velocity to avoid collision
-                too_close = true;
-                // Change lane
-                if (lane > 0)
-                {
-                  lane = 0;
-                }
-              }
+            // Find car s position from trajectory
+            check_car_s += ((double)prev_size*0.02*check_speed);
+
+            if ( car_lane == lane ) {
+              // Same lane
+              car_ahead |= check_car_s > car_s && check_car_s - car_s < 30;
+            } else if ( car_lane - lane == -1 ) {
+              // Left lane
+              car_in_left_lane |= car_s - 30 < check_car_s && car_s + 30 > check_car_s;
+            } else if ( car_lane - lane == 1 ) {
+              // Right lane
+              car_in_right_lane |= car_s - 30 < check_car_s && car_s + 30 > check_car_s;
             }
           }
 
-          if (too_close)
-          {
-            ref_vel -= 0.224;
-          }
-          else if(ref_vel < 49.5)
-          {
-            ref_vel += 0.224;
+          double vel_diff = 0;
+          const double VEL_MAX = 49.5;
+          const double ACCL_MAX = .224;
+
+          if ( car_ahead ) {
+            if ( !car_in_left_lane && lane > 0 ) {
+              // If left lane and no car in left lane, change to left lane
+              lane--; 
+            } else if ( !car_in_right_lane && lane != 2 ){
+              // If right lane and no car in right lane, change to right lane
+              lane++; 
+            } else {
+              vel_diff -= ACCL_MAX;
+            }
+          } else {
+            if ( lane != 1 ) { // if we are not on the center lane.
+              if ( ( lane == 0 && !car_in_right_lane ) || ( lane == 2 && !car_in_left_lane ) ) {
+                lane = 1; // Back to center.
+              }
+            }
+            if ( ref_vel < VEL_MAX ) {
+              vel_diff += ACCL_MAX;
+            }
           }
 
           // Widely spaced (x,y) points
@@ -216,6 +247,14 @@ int main() {
 
           // Calculate the remaining path
           for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
+
+            ref_vel += vel_diff;
+            if ( ref_vel > VEL_MAX ) {
+              ref_vel = VEL_MAX;
+            } else if ( ref_vel < ACCL_MAX ) {
+              ref_vel = ACCL_MAX;
+            }
+
             double N = (target_dist/(0.02 * ref_vel/2.24));
             double x_point = x_add_on + (target_x)/N;
             double y_point = s(x_point);

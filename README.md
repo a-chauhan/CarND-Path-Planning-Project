@@ -1,7 +1,28 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
+
+# Overview
+In this project we need to plan a path for the self driving car and test it on the simulator provided by the udacity. The simulator sends cars data, sensor data, and also data about the other cars location. At every 0.02 second, a trajectory path points are required.
+
+# Reflection
+1. Before starting we need to set some rules:
+    1.1: Starting lane = 1
+    1.2: Starting velocity = 0
+    1.3: Max velocity = 49.5
+    1.4: Max acceleration = 0.224, to avoid the sudden jerk
+
+2. We iterate over the sensor fusion data, to find the car lanes and there positions relative to our car. like whether we have car ahead or in right or in left side.
+
+3. Then we put the logic like:
+    3.1: Change to left lane if no car in left and left lane available, given car ahead
+    3.2 Change to right lane if no car in right and right lane availle, given car ahead
+    
+4. Then we calculate the trajectory using the path history, and translate that to the frenets 
+
+5. We use the spline to smooth the curve and find correspoint points on the spline.
+
    
-### Simulator.
+### Simulator
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
 
 To run the simulator on Mac/Linux, first make the binary file executable with the following command:
